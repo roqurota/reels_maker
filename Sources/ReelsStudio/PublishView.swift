@@ -199,11 +199,11 @@ struct PublishView: View {
                     .toggleStyle(.checkbox).font(.system(size: 12))
                     HStack(spacing: 14) {
                         Picker("Звук", selection: Binding(get: { d.wrappedValue.soundMode ?? "link" }, set: { d.wrappedValue.soundMode = $0 })) {
-                            Text("Из ролика, трек «\(e.song)» на 0 для ссылки").tag("link")
+                            Text("Из ролика, трек «\(e.song)» на минимуме для ссылки").tag("link")
                             Text("Официальный трек звучит").tag("track")
                         }
                         .frame(width: 330)
-                        .help("«Из ролика»: слышно наш звук, а трек стоит на громкости 0, чтобы у видео была ссылка на песню и кнопка Spotify")
+                        .help("«Из ролика»: слышно наш звук, а трек стоит на минимальной громкости (не 0, иначе TikTok его убирает), чтобы у видео была ссылка на песню и кнопка Spotify")
                         if !d.wrappedValue.linkOnly {
                             HStack(spacing: 6) {
                                 Text("с").font(.system(size: 12))
@@ -216,6 +216,7 @@ struct PublishView: View {
                         HStack(spacing: 6) {
                             Text("Обложка, с").font(.system(size: 12))
                             TextField("авто", text: d.coverSec).textFieldStyle(.roundedBorder).frame(width: 50)
+                                .help("Пусто: Claude сам выберет выразительный кадр для обложки")
                         }
                         Toggle("Метка «создано ИИ»", isOn: d.aiLabel).toggleStyle(.checkbox).font(.system(size: 12))
                     }
