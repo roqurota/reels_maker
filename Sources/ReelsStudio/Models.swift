@@ -138,7 +138,7 @@ struct ReelTemplate: Codable, Hashable, Identifiable {
 
 // MARK: - Jobs
 
-enum JobKind: String, Codable { case reel, analyze, skillEdit }
+enum JobKind: String, Codable { case reel, analyze, skillEdit, publish }
 enum JobStatus: String, Codable { case waiting, running, done, failed, cancelled }
 
 struct Job: Codable, Identifiable, Hashable {
@@ -173,6 +173,8 @@ struct Job: Codable, Identifiable, Hashable {
     var mediaFolders: [String]?
     var usePexels: Bool?
     var revisions: [String]?       // comments sent through «Доработать»
+    var entryId: UUID?             // journal entry a publish job posts
+    var dryRun: Bool?              // publish: prepare everything but don't press Publish
 }
 
 // MARK: - Journal
@@ -186,4 +188,25 @@ struct ReelEntry: Codable, Identifiable, Hashable {
     var template: String
     var published: Bool = false
     var platforms: String = ""
+    var tiktokURL: String? = nil
+}
+
+/// What the user set up for one reel on the Publish page (kept between app runs).
+struct PublishDraft: Codable, Hashable {
+    var caption: String = ""
+    var variants: [String] = []
+    var privacy: String? = nil            // "Все" / "Друзья" / "Только я"; no default, the user picks
+    var allowComments = true
+    var allowDuet = true
+    var allowStitch = true
+    var aiLabel = false
+    var soundStart: String = ""           // where the official track should start, m:ss (empty: Claude finds it)
+    var soundMode: String? = nil          // "link": track at volume 0 just for the song link (default); "track": track audible
+    var linkOnly: Bool { (soundMode ?? "link") == "link" }
+    var coverSec: String = ""             // cover frame, seconds (empty: TikTok default)
+}
+
+enum TikTok {
+    static let privacyOptions = ["Все", "Друзья", "Только я"]
+    static let captionLimit = 2200
 }

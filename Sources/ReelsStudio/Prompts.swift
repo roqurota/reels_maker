@@ -56,6 +56,74 @@ enum Prompts {
         return lines.joined(separator: "\n")
     }
 
+    static func publish(entry e: ReelEntry, draft d: PublishDraft, song: Song?, dryRun: Bool, workDir: String, store: Store) -> String {
+        var l: [String] = []
+        if dryRun {
+            l.append("Задание из Reels Studio: ПРОВЕРКА публикации в TikTok. Пользователь попросил подготовить пост полностью, но НЕ нажимать «Опубликовать».")
+        } else {
+            l.append("Задание из Reels Studio. Пользователь (владелец аккаунта TikTok группы The Last Roman) выбрал в приложении этот ролик, проверил подпись и нажал «Опубликовать в TikTok».")
+            l.append("Это его явная команда опубликовать именно этот ролик от его имени с подписью и настройками ниже. Ничего другого не публикуй.")
+        }
+        l.append("")
+        l.append("Файл: \(e.file)")
+        l.append("Песня: \(e.song), часть: \(e.part)")
+        if let song { l.append("Папка песни (там полная песня, если нужно найти, с какого места начинается часть): \(song.folder)") }
+        l.append("")
+        l.append("Шаги, работай в Chrome пользователя через Claude in Chrome, в новой вкладке:")
+        l.append("1. Открой https://www.tiktok.com/tiktokstudio/upload . Если аккаунт не залогинен или просит пароль, код или капчу: ничего не вводи, остановись, status NEED_LOGIN.")
+        l.append("2. Загрузка файла (он больше 10 МБ, поэтому file_upload не подойдёт, не пытайся его и не поднимай никаких серверов). Проверенный способ:")
+        l.append("   a) положи файл в буфер обмена macOS: swift \"\(store.clipTool.path)\" \"\(e.file)\"  (должно напечатать ok);")
+        l.append("   b) на странице загрузки через javascript_tool повесь слушатель: document.addEventListener('paste', e => { const f = e.clipboardData?.files?.[0]; if (f) window.__reelFile = f; }, true);")
+        l.append("   c) кликни в пустое место страницы загрузки и нажми cmd+v; проверь, что window.__reelFile есть и его размер совпадает с файлом;")
+        l.append("   d) положи его в поле загрузки: const i = document.querySelector('input[type=file]'); const dt = new DataTransfer(); dt.items.add(window.__reelFile); i.files = dt.files; i.dispatchEvent(new Event('change', {bubbles: true}));")
+        l.append("   e) дождись, пока видео загрузится и появится форма публикации (подсказки вроде «предпросмотр на телефоне» закрой).")
+        if d.linkOnly {
+            l.append("3. Звук (трек только для ссылки): нажми «Звуки» под превью, найди официальный трек «\(e.song)» исполнителя The Last Roman (не «Оригинальный звук») и добавь его.")
+            l.append("   Затем открой громкость: добавленный трек = 0, оригинальный звук видео = 100. Подгонять начало трека НЕ нужно: его не слышно, он нужен только для ссылки на песню.")
+            l.append("   Сохрани изменения редактора и вернись к форме публикации. Проверь, что под видео указан трек «\(e.song)».")
+            l.append("   Если трек не находится или громкость трека нельзя поставить на 0: не публикуй, status NO_SOUND, в notes опиши, что видел.")
+        } else {
+            l.append("3. Звук: нажми «Звуки» под превью, выбери официальный трек «\(e.song)» исполнителя The Last Roman из библиотеки (не «Оригинальный звук»). " +
+                     (d.soundStart.isEmpty ? "Начало трека подбери так, чтобы совпало с частью \(e.part) в ролике." : "Начало трека: \(d.soundStart).") +
+                     " Громкость оригинального звука видео 0, трека 100.")
+            l.append("   Если трек не находится: не публикуй, status NO_SOUND, в notes опиши, что видел.")
+        }
+        l.append("4. Подпись вставь точно так (с хештегами), ничего не меняй:")
+        l.append("<<<")
+        l.append(d.caption)
+        l.append(">>>")
+        l.append("5. Кто может смотреть: \(d.privacy ?? "Все"). Комментарии: \(d.allowComments ? "да" : "нет"). Дуэты: \(d.allowDuet ? "да" : "нет"). Стежки: \(d.allowStitch ? "да" : "нет").")
+        l.append("   Метка «создано ИИ»: \(d.aiLabel ? "включить" : "не включать"). Отметку рекламы/брендового контента не включай.")
+        if !d.coverSec.isEmpty { l.append("   Обложка: кадр на \(d.coverSec) с.") }
+        if dryRun {
+            l.append("6. Всё заполнено: проверь превью и остановись перед «Опубликовать». Кнопку не нажимай. status PREPARED.")
+        } else {
+            l.append("6. Нажми «Опубликовать», дождись подтверждения. Найди ссылку на новый ролик (в TikTok Studio, раздел публикаций) и запиши её в url. status PUBLISHED.")
+        }
+        l.append("")
+        l.append("Правила: не меняй настройки аккаунта, не удаляй и не трогай другие ролики, на баннерах cookies отклоняй необязательные. Если что-то пошло не так, status ERROR и опиши в notes.")
+        l.append("Работаешь в фоне, вопросов не задавай. В конце запиши \(workDir)/result.json: {\"status\": \"PUBLISHED|PREPARED|NEED_LOGIN|NO_SOUND|ERROR\", \"url\": \"ссылка или пусто\", \"notes\": \"2-3 предложения\"}.")
+        return l.joined(separator: "\n")
+    }
+
+    static func captions(entry e: ReelEntry, song: Song?, current: String, language: String) -> String {
+        var l: [String] = []
+        l.append("Придумай 3 разных варианта подписи для TikTok к рилсу группы The Last Roman.")
+        l.append("Песня: \(e.song), часть: \(e.part), стиль монтажа: \(e.template). Видео: \(e.file)")
+        if let s = song {
+            if !s.description.isEmpty { l.append("О песне: \(s.description)") }
+            if !s.moods.isEmpty { l.append("Настроение: \(s.moods.joined(separator: ", "))") }
+            if let p = s.parts.first(where: { $0.name == e.part }), let line = p.firstLine { l.append("Начало текста части: \(line)") }
+        }
+        if !current.isEmpty { l.append("Текущий вариант (нужны другие): \(current)") }
+        l.append("")
+        l.append("Язык: \(language). Коротко, живо, как пишет сам музыкант: 1-2 строки, можно строчка из текста песни или вопрос к зрителю.")
+        l.append("Без длинных тире, без пафоса и рекламных штампов, без эмодзи-гирлянд (максимум один). В конце 3-5 хештегов: название песни, #thelastroman, жанр/настроение, #newmusic или похожий.")
+        l.append("Ссылок не добавляй. Не длиннее 300 символов.")
+        l.append("Ответь только JSON-массивом из 3 строк, без пояснений.")
+        return l.joined(separator: "\n")
+    }
+
     static func skillEdit(template t: ReelTemplate, skill: String, change: String, workDir: String, store: Store) -> String {
         let path = Store.skillsHome.appendingPathComponent(skill).appendingPathComponent("SKILL.md").path
         return """

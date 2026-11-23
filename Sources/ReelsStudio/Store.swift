@@ -102,11 +102,62 @@ final class Store {
         for t in templates { backupSkill(t.skill, onlyIfMissing: true) }
         jobs = readJSON(jobsFile) ?? []
         journal = readJSON(journalFile) ?? []
+        loadDrafts()
+        writeTools()
     }
 
     func saveSongs() { writeJSON(songs.map { var s = $0; s.parts = []; return s }, songsFile) }
     func saveJobs() { writeJSON(jobs.map { var j = $0; j.log = Array(j.log.suffix(400)); return j }, jobsFile) }
     func saveJournal() { writeJSON(journal, journalFile) }
+
+    // MARK: Publishing
+    var publishFile: URL { studioDir.appendingPathComponent("publish.json") }
+    var drafts: [UUID: PublishDraft] = [:]
+    var captionLanguage: String { get { UserDefaults.standard.string(forKey: "captionLanguage") ?? "English" } }
+
+    var clipTool: URL { studioDir.appendingPathComponent("tools/clip.swift") }
+
+    /// Small helper Claude uses to put a big video on the macOS clipboard as a file,
+    /// so it can be pasted into TikTok's upload page (Claude in Chrome uploads only up to 10 MB).
+    func writeTools() {
+        let src = """
+        import AppKit
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        print(pb.writeObjects([URL(fileURLWithPath: CommandLine.arguments[1]) as NSURL]) ? "ok" : "failed")
+        """
+        try? FileManager.default.createDirectory(at: clipTool.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? src.write(to: clipTool, atomically: true, encoding: .utf8)
+    }
+
+    func loadDrafts() {
+        guard let d = try? Data(contentsOf: publishFile),
+              let m = try? JSONDecoder().decode([String: PublishDraft].self, from: d) else { return }
+        drafts = Dictionary(uniqueKeysWithValues: m.compactMap { k, v in UUID(uuidString: k).map { ($0, v) } })
+    }
+    func saveDrafts() { writeJSON(Dictionary(uniqueKeysWithValues: drafts.map { ($0.key.uuidString, $0.value) }), publishFile) }
+
+    func enqueuePublish(entryIds: [UUID], dryRun: Bool) -> Int {
+        var n = 0
+        for id in entryIds {
+            guard let e = journal.first(where: { $0.id == id }), let d = drafts[id] else { continue }
+            let work = studioDir.appendingPathComponent("publish").appendingPathComponent(Store.dayFormatter.string(from: Date()) + "_" + URL(fileURLWithPath: e.file).deletingPathExtension().lastPathComponent + "_" + UUID().uuidString.prefix(6))
+            var job = Job(kind: .publish, title: (dryRun ? "Проверка TikTok: " : "TikTok: ") + URL(fileURLWithPath: e.file).lastPathComponent, workDir: work.path, outputDir: work.path)
+            job.entryId = id; job.dryRun = dryRun; job.songName = e.song; job.part = e.part; job.templateName = e.template
+            job.prompt = Prompts.publish(entry: e, draft: d, song: songs.first { $0.name == e.song }, dryRun: dryRun, workDir: work.path, store: self)
+            jobs.append(job); n += 1
+        }
+        saveJobs(); runner.kick()
+        return n
+    }
+
+    func markPublished(entryId: UUID, url: String?) {
+        guard let i = journal.firstIndex(where: { $0.id == entryId }) else { return }
+        journal[i].published = true
+        if !journal[i].platforms.contains("TikTok") { journal[i].platforms = journal[i].platforms.isEmpty ? "TikTok" : journal[i].platforms + ", TikTok" }
+        if let url, !url.isEmpty { journal[i].tiktokURL = url }
+        saveJournal()
+    }
     func saveTemplate(_ t: ReelTemplate) {
         writeJSON(t, templatesDir.appendingPathComponent("\(t.id).json"))
         if let i = templates.firstIndex(where: { $0.id == t.id }) { templates[i] = t } else { templates.append(t) }

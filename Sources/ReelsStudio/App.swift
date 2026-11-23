@@ -2,12 +2,13 @@ import SwiftUI
 import AppKit
 
 enum Screen: String, Hashable, CaseIterable {
-    case newTask, queue, journal, songs, templates
+    case newTask, queue, journal, publish, songs, templates
     var title: String {
         switch self {
         case .newTask: "Новое задание"
         case .queue: "Очередь"
         case .journal: "Журнал роликов"
+        case .publish: "Публикация"
         case .songs: "Песни"
         case .templates: "Шаблоны"
         }
@@ -17,6 +18,7 @@ enum Screen: String, Hashable, CaseIterable {
         case .newTask: "plus.square"
         case .queue: "list.bullet"
         case .journal: "tablecells"
+        case .publish: "paperplane"
         case .songs: "music.note"
         case .templates: "rectangle.3.group"
         }
@@ -103,6 +105,7 @@ struct ContentView: View {
                 case .journal: JournalView()
                 case .songs: SongsView()
                 case .templates: TemplatesView()
+                case .publish: PublishView()
                 }
             }
             .background(Theme.bg)

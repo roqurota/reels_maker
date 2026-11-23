@@ -92,6 +92,7 @@ final class JobRunner {
                  "--permission-mode", store.permissionMode,
                  "-n", "Reels Studio: \(job.title)",
                  "--add-dir", store.reelsRoot, "--add-dir", store.songsRoot]
+        if job.kind == .publish { args.append("--chrome") }   // drives the user's own Chrome through Claude in Chrome
         for f in job.mediaFolders ?? [] where !f.hasPrefix(store.reelsRoot) && !f.hasPrefix(store.songsRoot) { args += ["--add-dir", f] }
         if !store.model.isEmpty { args += ["--model", store.model] }
 
@@ -222,6 +223,28 @@ final class JobRunner {
             } else {
                 job.status = .failed
                 job.note = code == 0 ? "Claude закончил, но ролика нет на месте" : "Ошибка (код \(code))"
+            }
+        } else if job.kind == .publish {
+            var status = "", url: String?, notes = ""
+            if let d = try? Data(contentsOf: URL(fileURLWithPath: job.workDir).appendingPathComponent("result.json")),
+               let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
+                status = (o["status"] as? String ?? "").uppercased(); url = o["url"] as? String; notes = o["notes"] as? String ?? ""
+            }
+            if !notes.isEmpty { job.log.append("Итог: " + notes) }
+            switch status {
+            case "PUBLISHED":
+                job.status = .done; job.note = "Опубликовано" + (url.map { ": " + $0 } ?? "")
+                if let id = job.entryId { store.markPublished(entryId: id, url: url) }
+            case "PREPARED":
+                job.status = .done; job.note = "Проверка пройдена: всё готово к публикации, кнопку не нажимал"
+            case "NEED_LOGIN":
+                job.status = .failed; job.note = "Нужно войти в TikTok в Chrome"
+                paused = true
+                store.lastError = "TikTok в Chrome не залогинен. Войди в TikTok в Chrome, потом в Очереди нажми «Повторить неудачные»."
+            case "NO_SOUND":
+                job.status = .failed; job.note = "На сайте не получилось поставить официальный трек, не публиковал"
+            default:
+                job.status = .failed; job.note = code == 0 ? "Публикация не подтвердилась" : "Ошибка (код \(code))"
             }
         } else if job.kind == .skillEdit {
             job.status = code == 0 ? .done : .failed
