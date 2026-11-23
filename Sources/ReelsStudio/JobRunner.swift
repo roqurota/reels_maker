@@ -93,7 +93,8 @@ final class JobRunner {
                  "-n", "Reels Studio: \(job.title)",
                  "--add-dir", store.reelsRoot, "--add-dir", store.songsRoot]
         if job.kind == .publish { args.append("--chrome") }   // drives the user's own Chrome through Claude in Chrome
-        for f in job.mediaFolders ?? [] where !f.hasPrefix(store.reelsRoot) && !f.hasPrefix(store.songsRoot) { args += ["--add-dir", f] }
+        let mediaDirs = (job.mediaFolders ?? []).isEmpty ? [store.mediaRoot] : (job.mediaFolders ?? [])
+        for f in mediaDirs where !f.isEmpty && !f.hasPrefix(store.reelsRoot) && !f.hasPrefix(store.songsRoot) { args += ["--add-dir", f] }
         if !store.model.isEmpty { args += ["--model", store.model] }
 
         let p = Process()

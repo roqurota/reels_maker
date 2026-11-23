@@ -179,6 +179,7 @@ func pluralReels(_ n: Int) -> String {
 
 /// Footage folders for a reel plus the "also use Pexels" switch.
 struct MediaPicker: View {
+    @Environment(Store.self) private var store
     @Binding var folders: [String]
     @Binding var usePexels: Bool
     var hint: String? = nil
@@ -186,8 +187,21 @@ struct MediaPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("Медиа для рилса", hint: folders.isEmpty ? "папки не выбраны: Claude подберёт сам" : nil)
+            SectionLabel("Медиа для рилса", hint: folders.isEmpty ? "свои папки не выбраны: берётся всё из общей папки" : "берётся только из этих папок")
             VStack(alignment: .leading, spacing: 6) {
+                if folders.isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "folder").foregroundStyle(Theme.muted)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Общая папка: \(URL(fileURLWithPath: store.mediaRoot).lastPathComponent)").font(.system(size: 13))
+                            Text(store.mediaRoot).font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Theme.muted).lineLimit(1).truncationMode(.head)
+                        }
+                        Spacer()
+                        SettingsLink { Text("Изменить") }.buttonStyle(.link).font(.system(size: 11))
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 7)
+                    .background(Theme.card.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+                }
                 ForEach(folders, id: \.self) { f in
                     HStack(spacing: 8) {
                         Image(systemName: "folder.fill").foregroundStyle(Theme.accent)
@@ -205,9 +219,9 @@ struct MediaPicker: View {
                     .background(Theme.card, in: RoundedRectangle(cornerRadius: 8))
                 }
                 Button {
-                    if let p = Finder.pickFolder(start: folders.last ?? startFolder), !folders.contains(p) { folders.append(p) }
+                    if let p = Finder.pickFolder(start: folders.last ?? store.mediaRoot), !folders.contains(p) { folders.append(p) }
                 } label: {
-                    Text("+ Добавить папку с видео").font(.system(size: 12)).frame(maxWidth: .infinity).frame(height: 32)
+                    Text(folders.isEmpty ? "+ Выбрать свои папки вместо общей" : "+ Добавить ещё папку").font(.system(size: 12)).frame(maxWidth: .infinity).frame(height: 32)
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(style: StrokeStyle(lineWidth: 1, dash: [4, 3])).foregroundStyle(Color(hex: "#4a4d55")))
                         .contentShape(Rectangle())
                 }
@@ -216,7 +230,7 @@ struct MediaPicker: View {
             Toggle(isOn: $usePexels) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Добавлять футажи с Pexels").font(.system(size: 13))
-                    Text(usePexels ? "Claude найдёт подходящие по смыслу и смешает с основным материалом. Скачанное хранится в _studio/pexels."
+                    Text(usePexels ? "Claude найдёт подходящие по смыслу и смешает с материалом группы. Скачанное хранится в _studio/pexels."
                                    : "Только материал из папок выше.")
                         .font(.system(size: 11)).foregroundStyle(Theme.muted)
                 }

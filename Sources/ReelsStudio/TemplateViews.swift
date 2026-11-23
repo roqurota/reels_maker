@@ -301,6 +301,11 @@ struct SettingsView: View {
                     Button("Выбрать…") { if let p = Finder.pickFolder(start: store.reelsRoot) { store.reelsRoot = p; store.load() } }
                 }
                 HStack {
+                    TextField("Общая папка с контентом", text: $store.mediaRoot)
+                        .help("Отсюда Claude берёт видео группы, если у песни или задания не выбраны свои папки")
+                    Button("Выбрать…") { if let p = Finder.pickFolder(start: store.mediaRoot) { store.mediaRoot = p } }
+                }
+                HStack {
                     TextField("Папка песен", text: $store.songsRoot)
                     Button("Выбрать…") { if let p = Finder.pickFolder(start: store.songsRoot) { store.songsRoot = p } }
                 }

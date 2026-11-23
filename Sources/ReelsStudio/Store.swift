@@ -11,6 +11,8 @@ final class Store {
     var claudePath: String { didSet { UserDefaults.standard.set(claudePath, forKey: "claudePath") } }
     var permissionMode: String { didSet { UserDefaults.standard.set(permissionMode, forKey: "permissionMode") } }
     var model: String { didSet { UserDefaults.standard.set(model, forKey: "model") } }
+    /// Shared footage folder: used whole when a song/task has no folders of its own.
+    var mediaRoot: String { didSet { UserDefaults.standard.set(mediaRoot, forKey: "mediaRoot") } }
 
     var songs: [Song] = []
     var templates: [ReelTemplate] = []
@@ -31,6 +33,7 @@ final class Store {
         claudePath = d.string(forKey: "claudePath") ?? Store.findClaude()
         permissionMode = d.string(forKey: "permissionMode") ?? "auto"
         model = d.string(forKey: "model") ?? ""
+        mediaRoot = d.string(forKey: "mediaRoot") ?? "/Volumes/The Last Roman/The Last Roman/Media/Video"
         load()
         runner.store = self
         // jobs that were running when the app quit are re-queued

@@ -34,7 +34,7 @@ enum Prompts {
         lines.append("")
         let media = job.mediaFolders ?? []
         if media.isEmpty {
-            lines.append("Медиа: папки не заданы, выбери подходящие видео группы сам (Media/Video на диске The Last Roman).")
+            lines.append("Медиа: отдельные папки не выбраны, поэтому можно брать любые видео и фото группы из общей папки \(store.mediaRoot) и всех её подпапок. Выбирай подходящее по смыслу песни и настроению.")
         } else {
             lines.append("Медиа: бери видео и фото группы только из этих папок (и их подпапок), другие не используй:")
             for f in media { lines.append("- \(f)") }
